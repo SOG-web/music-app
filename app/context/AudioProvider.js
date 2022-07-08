@@ -4,6 +4,7 @@ import * as MediaLibrary from 'expo-media-library';
 import { startActivityAsync, ActivityAction } from 'expo-intent-launcher';
 import * as Linking from 'expo-linking';
 import Constants from 'expo-constants';
+import { DataProvider } from 'recyclerlistview';
 
 const pkg = Constants.manifest.releaseChannel
   ? Constants.manifest.android.package // When published, considered as using standalone build
@@ -17,6 +18,12 @@ export default class AudioProvider extends Component {
     this.state = {
       audioFiles: [],
       permissionError: false,
+      dataProvider: new DataProvider((r1, r2) => r1 !== r2),
+      playBackObj: null,
+      soundObj: null,
+      currentAudio: {},
+      isPlaying: false,
+      currentAudioIndex: null,
     };
   }
 
@@ -48,6 +55,8 @@ export default class AudioProvider extends Component {
   };
 
   getAudioFiles = async () => {
+    const { dataProvider, audioFiles } = this.state;
+
     let media = await MediaLibrary.getAssetsAsync({
       mediaType: 'audio',
     });
@@ -57,12 +66,30 @@ export default class AudioProvider extends Component {
       mediaType: 'audio',
       first: media.totalCount,
     });
-    this.setState({ ...this.state, audioFiles: media.assets });
+
+    // console.log(media.assets);
+
+    // remove songs less than 20 secs
+    media = media.assets.filter((audio) => {
+      return audio.duration > 20;
+    });
+
+    media = media.sort(function (a, b) {
+      return a.filename.localeCompare(b.filename);
+    });
+
+    // console.log(media);
+
+    this.setState({
+      ...this.state,
+      dataProvider: dataProvider.cloneWithRows([...audioFiles, ...media]),
+      audioFiles: [...audioFiles, ...media],
+    });
   };
 
   getPermission = async () => {
     const permission = await MediaLibrary.getPermissionsAsync();
-    console.log(permission);
+    // console.log(permission);
     if (permission.granted) {
       // get all the audio files
       this.getAudioFiles();
@@ -71,7 +98,7 @@ export default class AudioProvider extends Component {
     if (!permission.granted) {
       const { status, canAskAgain } =
         await MediaLibrary.requestPermissionsAsync();
-      console.log(status);
+      // console.log(status);
       if (status === 'denied' && canAskAgain) {
         // display an alert that user must allow this permission to use this app
         this.permissionAlert();
@@ -93,11 +120,27 @@ export default class AudioProvider extends Component {
     }
   };
 
+  updateState = (prevState, newState = {}) => {
+    this.setState({ ...prevState, ...newState });
+    // console.log(this.state);
+  };
+
   componentDidMount() {
     this.getPermission();
   }
   render() {
-    if (this.state.permissionError) {
+    const {
+      dataProvider,
+      audioFiles,
+      permissionError,
+      currentAudio,
+      playBackObj,
+      soundObj,
+      isPlaying,
+      currentAudioIndex,
+    } = this.state;
+    // console.log(isPlaying);
+    if (permissionError) {
       return (
         <View
           style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
@@ -113,7 +156,18 @@ export default class AudioProvider extends Component {
       );
     }
     return (
-      <AudioContext.Provider value={{ audioFiles: this.state.audioFiles }}>
+      <AudioContext.Provider
+        value={{
+          audioFiles,
+          dataProvider,
+          soundObj,
+          playBackObj,
+          currentAudio,
+          updateState: this.updateState,
+          isPlaying,
+          currentAudioIndex,
+        }}
+      >
         {this.props.children}
       </AudioContext.Provider>
     );
