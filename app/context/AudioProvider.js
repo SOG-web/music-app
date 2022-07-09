@@ -24,6 +24,9 @@ export default class AudioProvider extends Component {
       currentAudio: {},
       isPlaying: false,
       currentAudioIndex: null,
+      totalAudioCount: 0,
+      playbackPosition: null,
+      playbackDuration: null,
     };
   }
 
@@ -57,20 +60,20 @@ export default class AudioProvider extends Component {
   getAudioFiles = async () => {
     const { dataProvider, audioFiles } = this.state;
 
-    let media = await MediaLibrary.getAssetsAsync({
+    let mediaO = await MediaLibrary.getAssetsAsync({
       mediaType: 'audio',
     });
 
     // a trick to get all audio files at once
-    media = await MediaLibrary.getAssetsAsync({
+    mediaO = await MediaLibrary.getAssetsAsync({
       mediaType: 'audio',
-      first: media.totalCount,
+      first: mediaO.totalCount,
     });
 
     // console.log(media.assets);
 
     // remove songs less than 20 secs
-    media = media.assets.filter((audio) => {
+    let media = mediaO.assets.filter((audio) => {
       return audio.duration > 20;
     });
 
@@ -84,6 +87,7 @@ export default class AudioProvider extends Component {
       ...this.state,
       dataProvider: dataProvider.cloneWithRows([...audioFiles, ...media]),
       audioFiles: [...audioFiles, ...media],
+      totalAudioCount: media.length,
     });
   };
 
@@ -125,6 +129,8 @@ export default class AudioProvider extends Component {
     // console.log(this.state);
   };
 
+  loadPreviousAudio = () => {};
+
   componentDidMount() {
     this.getPermission();
   }
@@ -138,6 +144,9 @@ export default class AudioProvider extends Component {
       soundObj,
       isPlaying,
       currentAudioIndex,
+      totalAudioCount,
+      playbackPosition,
+      playbackDuration,
     } = this.state;
     // console.log(isPlaying);
     if (permissionError) {
@@ -166,6 +175,9 @@ export default class AudioProvider extends Component {
           updateState: this.updateState,
           isPlaying,
           currentAudioIndex,
+          totalAudioCount,
+          playbackPosition,
+          playbackDuration,
         }}
       >
         {this.props.children}

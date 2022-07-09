@@ -45,6 +45,41 @@ export class AudioList extends Component {
     });
   };
 
+  setOnPlaybackStatusUpdate = async (playbackStatus) => {
+    if (playbackStatus.isLoaded && playbackStatus.isPlaying) {
+      this.context.updateState(this.context, {
+        playbackPosition: playbackStatus.positionMillis,
+        playbackDuration: playbackStatus.durationMillis,
+      });
+    }
+
+    if (playbackStatus.didJustFinish) {
+      const nextAudioIndex = this.context.currentAudioIndex + 1;
+
+      // check if no more audio to play or last audio
+      if (nextAudioIndex >= this.context.totalAudioCount) {
+        // no more audio to play or last audio
+        this.context.playBackObj.unloadAsync();
+        return this.context.updateState(this.context, {
+          currentAudio: this.context.audioFiles[0],
+          soundObj: null,
+          isPlaying: false,
+          currentAudioIndex: 0,
+          playbackPosition: null,
+          playbackDuration: null,
+        });
+      }
+      const audio = this.context.audioFiles[nextAudioIndex];
+      const status = await playNext(this.context.playBackObj, audio.uri);
+      return this.context.updateState(this.context, {
+        currentAudio: audio,
+        soundObj: status,
+        isPlaying: true,
+        currentAudioIndex: nextAudioIndex,
+      });
+    }
+  };
+
   handleAudioPress = async (audio) => {
     const { soundObj, playBackObj, currentAudio, updateState, audioFiles } =
       this.context;
@@ -57,13 +92,16 @@ export class AudioList extends Component {
       const playBackObj = new Audio.Sound();
       const status = await play(playBackObj, audio.uri);
       // console.log(status);
-      return updateState(this.context, {
+      updateState(this.context, {
         currentAudio: audio,
         playBackObj: playBackObj,
         soundObj: status,
         isPlaying: true,
         currentAudioIndex: index,
       });
+      return playBackObj.setOnPlaybackStatusUpdate(
+        this.setOnPlaybackStatusUpdate
+      );
     }
 
     // pause audio
